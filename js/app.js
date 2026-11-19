@@ -16,7 +16,7 @@ function showTab(name) {
   $$('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $$('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
   $('#title').textContent = { record: 'Record', swings: 'Swings', drills: 'Drills', coach: 'AI Coach' }[name];
-  if (name !== 'record' && cameraOn() && !isRecording()) stopCamera();
+  if (name !== 'record' && cameraOn() && !isRecording()) { stopCamera(); $('.cam-wrap').classList.remove('live'); }
   if (name === 'swings' && !current) renderList();
   if (name === 'drills') renderDrills();
   if (name === 'coach') renderCoachCtx();
@@ -41,9 +41,17 @@ dlg.addEventListener('close', () => {
 
 /* ---------- record ---------- */
 const cam = $('#cam'), recBtn = $('#recBtn');
+const CLUBS = ['Driver', '3 Wood', 'Hybrid', '5 Iron', '7 Iron', '9 Iron', 'Wedge', 'Putter'];
+function renderClubs() {
+  $('#clubPills').innerHTML = CLUBS.map(c => `<button class="pill ${c === $('#clubSel').value ? 'active' : ''}">${c}</button>`).join('');
+  $$('#clubPills .pill').forEach(b => b.onclick = () => { $('#clubSel').value = b.textContent; renderClubs(); });
+}
+renderClubs();
+$$('#viewSeg button').forEach(b => b.onclick = () => { $('#viewSel').value = b.dataset.v; $$('#viewSeg button').forEach(x => x.classList.toggle('active', x === b)); });
+function setRecUI(on) { recBtn.classList.toggle('on', on); recBtn.textContent = on ? 'Stop recording' : 'Start recording'; $('#recDot').classList.toggle('hidden', !on); }
 async function ensureCam() {
   if (cameraOn()) return true;
-  try { await startCamera(cam); $('#recHint').textContent = 'Set phone at hip height, whole body + club in frame.'; return true; }
+  try { await startCamera(cam); $('.cam-wrap').classList.add('live'); $('#recHint').textContent = 'Phone at hip height, whole body and club in the outline.'; return true; }
   catch (e) { $('#recHint').textContent = 'Camera blocked: ' + e.message; return false; }
 }
 $('.cam-wrap').onclick = () => ensureCam();
@@ -57,7 +65,7 @@ async function countdown(n = 3) {
 async function beginRec() {
   if (isRecording() || !(await ensureCam())) return;
   await countdown();
-  startRecording(); recBtn.classList.add('on'); $('#recDot').classList.remove('hidden');
+  startRecording(); setRecUI(true);
   // auto-stop after 12s so a hands-free session never runs forever
   clearTimeout(beginRec.t); beginRec.t = setTimeout(endRec, 12000);
 }
@@ -65,7 +73,7 @@ async function endRec() {
   if (!isRecording()) return;
   clearTimeout(beginRec.t);
   const blob = await stopRecording();
-  recBtn.classList.remove('on'); $('#recDot').classList.add('hidden');
+  setRecUI(false);
   if (!blob?.size) { $('#recHint').textContent = 'Recording came out empty — try again.'; return; }
   const swing = { id: Date.now().toString(36), date: Date.now(), blob, club: $('#clubSel').value, view: $('#viewSel').value, shapes: [], notes: '' };
   await saveSwing(swing);
