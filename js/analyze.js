@@ -2,7 +2,7 @@
 const VER = '0.10.14';
 const MP = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VER}`;
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
-let landmarker = null;
+let landmarker = null, lastTs = 0; // MediaPipe needs timestamps that always increase, even across analyses
 
 async function getLandmarker() {
   if (landmarker) return landmarker;
@@ -28,7 +28,8 @@ export async function trackPose(video, onProgress) {
   for (let i = 0; i < n; i++) {
     const t = (dur * i) / (n - 1) * 0.999;
     await seek(video, t);
-    const r = lmk.detectForVideo(video, Math.round(t * 1000) + i); // strictly increasing ts
+    lastTs += 33;
+    const r = lmk.detectForVideo(video, lastTs);
     const p = r.landmarks?.[0];
     if (p) frames.push({ t, lm: p.map(q => ({ x: q.x, y: q.y, v: q.visibility ?? 1 })) });
     onProgress?.((i + 1) / n);
