@@ -39,6 +39,7 @@
       <button id="flipBtn" class="ghost">Flip camera</button>
       <button id="voiceRecBtn" class="ghost">Voice control</button>
     </div>
+    <button id="tipsBtn" class="tips-link">ⓘ How to set up for the best results</button>
     <p class="hint" id="recHint">Fit your whole body in the outline. Videos stay on your phone.</p>
   </section>
 
@@ -116,6 +117,19 @@
   <button data-tab="drills"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 21V3l11 4-11 4"/><circle cx="16" cy="19" r="2"/></svg>Drills</button>
   <button data-tab="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Coach</button>
 </nav>
+
+<dialog id="tips">
+  <form method="dialog">
+    <h2>Best recording setup</h2>
+    <div class="tip"><b>Angle</b><span id="tipAngle"></span></div>
+    <div class="tip"><b>Height</b><span>Hip to belt height (about 3 ft). Phone level, not tilted.</span></div>
+    <div class="tip"><b>Distance</b><span>10–12 ft away (4 big steps). Whole body, club at the top, and a little space above your head and below your feet in frame. Keep the phone upright.</span></div>
+    <div class="tip"><b>Lighting</b><span>Light on you, behind the camera. Never sun or a bright window behind you. Bright, even light — dim light blurs the swing.</span></div>
+    <div class="tip"><b>Steady</b><span>Use a tripod or prop the phone. Same spot every time so swings compare fairly.</span></div>
+    <div class="tip"><b>Extras</b><span>Plain background, fitted clothes. Hold still 1 sec at address and hold your finish 1 sec.</span></div>
+    <menu><button value="ok" class="primary">Got it</button></menu>
+  </form>
+</dialog>
 
 <dialog id="settings">
   <form method="dialog">

@@ -47,7 +47,18 @@ function renderClubs() {
   $$('#clubPills .pill').forEach(b => b.onclick = () => { $('#clubSel').value = b.textContent; renderClubs(); });
 }
 renderClubs();
-$$('#viewSeg button').forEach(b => b.onclick = () => { $('#viewSel').value = b.dataset.v; $$('#viewSeg button').forEach(x => x.classList.toggle('active', x === b)); });
+function setView(v) {
+  $('#viewSel').value = v; localStorage.setItem('view', v);
+  $$('#viewSeg button').forEach(x => x.classList.toggle('active', x.dataset.v === v));
+}
+$$('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.v));
+setView(localStorage.getItem('view') || 'face');
+$('#tipsBtn').onclick = () => {
+  $('#tipAngle').textContent = $('#viewSel').value === 'dtl'
+    ? 'Down-the-line: camera behind your hands, pointing along your target line at the target. Best for plane, club path and posture.'
+    : 'Face-on: camera straight across from your chest, centered on your stance. Best for sway, turn and weight shift.';
+  $('#tips').showModal(); $('#tips').scrollTop = 0; document.activeElement?.blur();
+};
 function setRecUI(on) { recBtn.classList.toggle('on', on); recBtn.textContent = on ? 'Stop recording' : 'Start recording'; $('#recDot').classList.toggle('hidden', !on); }
 async function ensureCam() {
   if (cameraOn()) return true;
