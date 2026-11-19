@@ -1,4 +1,4 @@
-const CACHE = 'swing-coach-v1';
+﻿const CACHE = 'swing-coach-v2';
 const ASSETS = ['./', 'index.html', 'css/app.css', 'manifest.json', 'icons/icon.svg',
   'js/app.js', 'js/db.js', 'js/record.js', 'js/analyze.js', 'js/draw.js', 'js/grade.js', 'js/drills.js', 'js/coach.js', 'js/voice.js'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())));

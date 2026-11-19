@@ -214,16 +214,27 @@ $('#askCoachBtn').onclick = async () => {
 };
 
 /* ---------- drills ---------- */
-let drillFilter = 'all';
+let drillFilter = 'all', libOpen = false;
+$('#libToggle').onclick = () => { libOpen = !libOpen; renderDrills(); };
 const drillCard = d => `<div class="drill"><h3>${esc(d.name)}</h3>
   <div class="tags">${d.why ? 'Fixes: ' + esc(d.why) + ' · ' : ''}${d.tags.map(t => FAULTS[t] || t).join(' · ')}</div>
   <ol>${d.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
   <div class="vid"><a href="${videoUrl(d)}" target="_blank" rel="noopener">▶ Watch drill videos</a><a href="${shortsUrl(d)}" target="_blank" rel="noopener" style="background:var(--card2)">Shorts</a></div></div>`;
 async function renderDrills() {
-  const [latest] = (await listSwings()).filter(s => s.analysis);
-  $('#suggested').innerHTML = latest
-    ? `<div class="sec-title">Suggested for your last swing (${latest.analysis.grade.toFixed(1)}/10)</div>${suggest(latest.analysis.metrics).map(drillCard).join('') || '<p class="hint">Nothing major to fix — keep grooving it!</p>'}`
-    : '<p class="hint">Analyze a swing to get drills picked for you.</p>';
+  const all = await listSwings(), [latest] = all.filter(s => s.analysis);
+  const empty = (title, sub, btn) => `<div class="empty-state"><div class="es-icon">⛳</div><b>${title}</b><p>${sub}</p>${btn ? `<button class="primary" id="esBtn">${btn}</button>` : ''}</div>`;
+  if (!latest) {
+    $('#suggested').innerHTML = all.length
+      ? empty('No suggestions yet', 'Analyze one of your swings and I’ll pick drills for exactly what you need.', 'Go to my swings')
+      : empty('No swings yet', 'Record a swing to get drill suggestions picked for you.', 'Record a swing');
+    $('#esBtn').onclick = () => showTab(all.length ? 'swings' : 'record');
+  } else {
+    const sug = suggest(latest.analysis.metrics);
+    $('#suggested').innerHTML = `<div class="sec-title">Suggested for your last swing (${latest.analysis.grade.toFixed(1)}/10)</div>` +
+      (sug.length ? sug.map(drillCard).join('') : '<p class="hint">Nothing needs fixing on your last swing — keep grooving it!</p>');
+  }
+  $('#drillLib').classList.toggle('hidden', !libOpen);
+  $('#libToggle').textContent = libOpen ? 'Hide drill library' : 'Browse all drills';
   $('#drillFilters').innerHTML = Object.entries(FAULTS).map(([k, v]) => `<button class="chip ${k === drillFilter ? 'active' : ''}" data-f="${k}">${v}</button>`).join('');
   $$('#drillFilters .chip').forEach(c => c.onclick = () => { drillFilter = c.dataset.f; renderDrills(); });
   $('#drillList').innerHTML = `<div class="sec-title">Drill library</div>` + DRILLS.filter(d => drillFilter === 'all' || d.tags.includes(drillFilter)).map(drillCard).join('');

@@ -72,6 +72,10 @@ select,input:not([type=checkbox]):not([type=range]):not([type=color]){background
 .metric p{margin:0;color:var(--mute);font-size:13px}
 
 /* drills */
+.empty-state{background:var(--card);border-radius:18px;padding:28px 20px;text-align:center;margin:10px 0}
+.empty-state .es-icon{font-size:40px;margin-bottom:6px}
+.empty-state b{font-size:19px}
+.empty-state p{color:var(--mute);margin:6px 0 16px;font-size:14px}
 .chips{display:flex;gap:6px;overflow-x:auto;margin:10px 0}
 .chip{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:6px 12px;white-space:nowrap;font-size:13px}
 .chip.active{background:var(--green);color:#04140a;border-color:var(--green)}
