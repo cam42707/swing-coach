@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Swing Coach">
+<meta name="theme-color" content="#0b0f0c">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<title>Swing Coach</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="top">
+  <h1 id="title">Record</h1>
+  <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙︎</button>
+</header>
+
+<main>
+  <!-- RECORD -->
+  <section id="tab-record" class="tab active">
+    <div class="cam-wrap">
+      <video id="cam" playsinline muted autoplay></video>
+      <div id="camGuide" class="cam-guide"><div class="guide-feet"></div></div>
+      <div id="countdown" class="countdown hidden"></div>
+      <div id="recDot" class="rec-dot hidden">● REC</div>
+    </div>
+    <div class="row">
+      <select id="clubSel">
+        <option>Driver</option><option>3 Wood</option><option>Hybrid</option><option>5 Iron</option>
+        <option selected>7 Iron</option><option>9 Iron</option><option>Wedge</option>
+      </select>
+      <select id="viewSel">
+        <option value="face">Face-on</option><option value="dtl">Down-the-line</option>
+      </select>
+    </div>
+    <div class="rec-controls">
+      <button id="flipBtn" class="ghost">⟲ Flip</button>
+      <button id="recBtn" class="rec-btn" aria-label="Record"><span></span></button>
+      <button id="voiceRecBtn" class="ghost">🎙 Voice</button>
+    </div>
+    <p class="hint" id="recHint">Tap to start camera. Say “record” / “stop” with Voice on. Videos never leave your phone.</p>
+  </section>
+
+  <!-- SWINGS / ANALYSIS -->
+  <section id="tab-swings" class="tab">
+    <div id="swingList" class="swing-list"></div>
+    <div id="swingDetail" class="hidden">
+      <button id="backBtn" class="ghost small">‹ All swings</button>
+      <div class="player">
+        <video id="player" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="scrub">
+        <button id="playBtn" class="ghost small">▶</button>
+        <input id="scrubber" type="range" min="0" max="1000" value="0">
+        <select id="speedSel"><option value="1">1×</option><option value="0.5">½×</option><option value="0.25" selected>¼×</option><option value="0.1">⅒×</option></select>
+      </div>
+      <div class="phase-jump" id="phaseJump"></div>
+      <div class="tools" id="tools">
+        <button data-tool="none" class="tool active">✋</button>
+        <button data-tool="line" class="tool">／ Line</button>
+        <button data-tool="angle" class="tool">∠ Angle</button>
+        <button data-tool="circle" class="tool">◯</button>
+        <button data-tool="free" class="tool">✎ Path</button>
+        <input type="color" id="colorPick" value="#ffd60a">
+        <button id="undoBtn" class="tool">↶</button>
+        <button id="clearBtn" class="tool">🗑</button>
+      </div>
+      <div class="toggles" id="autoToggles">
+        <label><input type="checkbox" data-auto="skeleton" checked> Body</label>
+        <label><input type="checkbox" data-auto="spine" checked> Spine</label>
+        <label><input type="checkbox" data-auto="feet" checked> Feet</label>
+        <label><input type="checkbox" data-auto="head" checked> Head</label>
+        <label><input type="checkbox" data-auto="hands" checked> Hand/Club path</label>
+        <label><input type="checkbox" data-auto="plane" checked> Shaft plane</label>
+      </div>
+      <button id="analyzeBtn" class="primary wide">Analyze swing</button>
+      <div id="analyzeStatus" class="hint"></div>
+      <div id="breakdown"></div>
+      <div class="row">
+        <button id="askCoachBtn" class="primary">Ask coach about this swing</button>
+        <button id="deleteSwingBtn" class="danger">Delete</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- DRILLS -->
+  <section id="tab-drills" class="tab">
+    <div id="suggested"></div>
+    <div class="chips" id="drillFilters"></div>
+    <div id="drillList"></div>
+  </section>
+
+  <!-- COACH -->
+  <section id="tab-coach" class="tab">
+    <div id="coachCtx" class="coach-ctx"></div>
+    <div id="chat" class="chat"></div>
+    <div class="orb-wrap">
+      <button id="orb" class="orb" aria-label="Talk to coach"><span></span></button>
+      <div id="orbLabel" class="hint">Tap the orb for hands-free coach</div>
+    </div>
+    <form id="chatForm" class="chat-form">
+      <input id="chatInput" placeholder="Ask your coach…" autocomplete="off">
+      <button class="primary">Send</button>
+    </form>
+  </section>
+</main>
+
+<nav class="tabbar">
+  <button data-tab="record" class="active"><b>⏺</b>Record</button>
+  <button data-tab="swings"><b>📈</b>Swings</button>
+  <button data-tab="drills"><b>🏌</b>Drills</button>
+  <button data-tab="coach"><b>🤖</b>Coach</button>
+</nav>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h2>Settings</h2>
+    <label>Claude API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
+    <p class="hint">Stored only on this phone. Only still frames + numbers are sent to Claude, never the video.</p>
+    <label>Coach name<input id="coachName" placeholder="Coach"></label>
+    <label>Handedness
+      <select id="hand"><option value="R">Right-handed</option><option value="L">Left-handed</option></select>
+    </label>
+    <label><input type="checkbox" id="speakReplies" checked> Speak coach replies out loud</label>
+    <menu><button value="ok" class="primary">Save</button></menu>
+  </form>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

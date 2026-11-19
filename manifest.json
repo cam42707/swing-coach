@@ -1,0 +1,10 @@
+{
+  "name": "Swing Coach",
+  "short_name": "Swing Coach",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f0c",
+  "theme_color": "#0b0f0c",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
