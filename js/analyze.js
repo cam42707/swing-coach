@@ -18,15 +18,16 @@ async function getLandmarker() {
 const seek = (v, t) => new Promise(r => { const on = () => { v.removeEventListener('seeked', on); r(); }; v.addEventListener('seeked', on); v.currentTime = t; });
 
 // Returns { frames:[{t, lm:[{x,y,v}]}], duration }
-export async function trackPose(video, onProgress) {
+export async function trackPose(video, onProgress, from = 0, to = Infinity) {
   const lmk = await getLandmarker();
   video.pause();
   const dur = video.duration;
   if (!isFinite(dur) || !dur) throw new Error('This video could not be read. Try recording it again.');
-  const n = Math.min(120, Math.max(40, Math.round(dur * 30)));
+  const a = Math.max(0, from), b = Math.min(dur * 0.999, to), len = b - a;
+  const n = Math.min(120, Math.max(40, Math.round(len * 30)));
   const frames = [];
   for (let i = 0; i < n; i++) {
-    const t = (dur * i) / (n - 1) * 0.999;
+    const t = a + (len * i) / (n - 1);
     await seek(video, t);
     lastTs += 33;
     const r = lmk.detectForVideo(video, lastTs);
@@ -34,7 +35,7 @@ export async function trackPose(video, onProgress) {
     if (p) frames.push({ t, lm: p.map(q => ({ x: q.x, y: q.y, v: q.visibility ?? 1 })) });
     onProgress?.((i + 1) / n);
   }
-  await seek(video, 0);
+  await seek(video, a);
   return { frames, duration: dur };
 }
 

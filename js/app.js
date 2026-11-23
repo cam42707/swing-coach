@@ -1,5 +1,5 @@
 import { saveSwing, getSwing, listSwings, deleteSwing } from './db.js';
-import { startCamera, flipCamera, cameraOn, startRecording, stopRecording, isRecording, grabFrame, stopCamera } from './record.js';
+import { startCamera, flipCamera, cameraOn, startRecording, stopRecording, isRecording, grabFrame, stopCamera, getMotion, findSwingWindow } from './record.js';
 import { trackPose, findPhases } from './analyze.js';
 import { gradeSwing, gradeColor } from './grade.js';
 import { Overlay } from './draw.js';
@@ -16,7 +16,9 @@ function showTab(name) {
   $$('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $$('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
   $('#title').textContent = { record: 'Record', swings: 'Swings', drills: 'Drills', coach: 'AI Coach' }[name];
-  if (name !== 'record' && cameraOn() && !isRecording()) { stopCamera(); $('.cam-wrap').classList.remove('live'); }
+  if (name !== 'record' && cameraOn() && !isRecording()) camOff();
+  $('#selectBtn').classList.toggle('hidden', name !== 'swings' || !!current);
+  if (name !== 'swings') setSelect(false);
   if (name === 'swings' && !current) renderList();
   if (name === 'drills') renderDrills();
   if (name === 'coach') renderCoachCtx();
@@ -65,20 +67,29 @@ async function ensureCam() {
   try { await startCamera(cam); $('.cam-wrap').classList.add('live'); $('#recHint').textContent = 'Phone at hip height, whole body and club in the outline.'; return true; }
   catch (e) { $('#recHint').textContent = 'Camera blocked: ' + e.message; return false; }
 }
-$('.cam-wrap').onclick = () => ensureCam();
+function camOff() { stopCamera(); $('.cam-wrap').classList.remove('live'); $('#previewBtn').classList.remove('on'); $('#previewBtn').textContent = 'Preview angle'; }
+$('.cam-wrap').onclick = async () => { if (await ensureCam()) { $('#previewBtn').classList.add('on'); $('#previewBtn').textContent = 'Stop preview'; } };
+$('#previewBtn').onclick = async () => {
+  if (cameraOn()) { if (!isRecording()) camOff(); return; }
+  if (await ensureCam()) { $('#previewBtn').classList.add('on'); $('#previewBtn').textContent = 'Stop preview'; }
+};
 $('#flipBtn').onclick = () => flipCamera(cam);
 
-async function countdown(n = 3) {
+const REC_SECONDS = 15;
+async function countdown(n = 5, say = false) {
   const el = $('#countdown'); el.classList.remove('hidden');
-  for (let i = n; i > 0; i--) { el.textContent = i; await new Promise(r => setTimeout(r, 800)); }
+  for (let i = n; i > 0; i--) { el.textContent = i; if (say) speak(String(i)); await new Promise(r => setTimeout(r, 1000)); }
   el.classList.add('hidden');
 }
-async function beginRec() {
-  if (isRecording() || !(await ensureCam())) return;
-  await countdown();
+let coachRec = false; // recording was started by talking to the AI coach
+async function beginRec(say = false) {
+  if (isRecording() || !(await ensureCam())) return false;
+  await countdown(5, say);
   startRecording(); setRecUI(true);
-  // auto-stop after 12s so a hands-free session never runs forever
-  clearTimeout(beginRec.t); beginRec.t = setTimeout(endRec, 12000);
+  if (say) speak('Go');
+  $('#recHint').textContent = `Recording ${REC_SECONDS}s. Take your time and hit when ready, I'll trim it to the swing.`;
+  clearTimeout(beginRec.t); beginRec.t = setTimeout(endRec, REC_SECONDS * 1000);
+  return true;
 }
 async function endRec() {
   if (!isRecording()) return;
@@ -86,8 +97,12 @@ async function endRec() {
   const blob = await stopRecording();
   setRecUI(false);
   if (!blob?.size) { $('#recHint').textContent = 'Recording came out empty — try again.'; return; }
-  const swing = { id: Date.now().toString(36), date: Date.now(), blob, club: $('#clubSel').value, view: $('#viewSel').value, shapes: [], notes: '' };
+  const motion = getMotion().slice(), recDur = motion.length ? motion[motion.length - 1].t : 0;
+  const swing = { id: Date.now().toString(36), date: Date.now(), blob, club: $('#clubSel').value, view: $('#viewSel').value, shapes: [], notes: '',
+    trim: findSwingWindow(motion, recDur) };
   await saveSwing(swing);
+  $('#recHint').textContent = swing.trim ? 'Trimmed to your swing and saved.' : 'Saved (couldn\u2019t spot the swing, showing the full clip).';
+  if (coachRec) { coachRec = false; await coachReview(swing.id); return; }
   if (recVoice?.want) { speak('Got it. Saved.'); $('#recHint').textContent = 'Saved. Say “record” for another, or “analyze”.'; }
   else { showTab('swings'); openSwing(swing.id, true); }
 }
@@ -123,9 +138,34 @@ async function renderList() {
       <div class="meta"><span>${esc(s.club)}<br><small style="color:var(--mute)">${new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${new Date(s.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>
       <span class="grade-pill" style="color:${g != null ? gradeColor(g) : 'var(--mute)'}">${g != null ? g.toFixed(1) : '—'}</span></div></button>`;
   }).join('');
-  all.forEach(s => { const v = $(`video[data-blob="${s.id}"]`); v.src = URL.createObjectURL(s.blob) + '#t=0.3'; });
-  $$('.swing-card').forEach(b => b.onclick = () => openSwing(b.dataset.id));
+  all.forEach(s => { const v = $(`video[data-blob="${s.id}"]`); v.src = URL.createObjectURL(s.blob) + '#t=' + ((s.trim?.start || 0) + 0.3).toFixed(2); });
+  $$('.swing-card').forEach(b => b.onclick = () => {
+    if (!selecting) return openSwing(b.dataset.id);
+    selected.has(b.dataset.id) ? selected.delete(b.dataset.id) : selected.add(b.dataset.id);
+    b.classList.toggle('picked'); updateSelBar();
+  });
 }
+// select + delete several swings
+let selecting = false; const selected = new Set();
+function setSelect(on) {
+  selecting = on; selected.clear();
+  $('#selectBtn').textContent = on ? 'Cancel' : 'Select';
+  $('#swingList').classList.toggle('selecting', on);
+  $$('.swing-card.picked').forEach(c => c.classList.remove('picked'));
+  updateSelBar();
+}
+function updateSelBar() {
+  $('#selBar').classList.toggle('hidden', !selecting);
+  $('#delSelBtn').textContent = selected.size ? `Delete ${selected.size} swing${selected.size === 1 ? '' : 's'}` : 'Delete';
+  $('#delSelBtn').disabled = !selected.size;
+}
+$('#selectBtn').onclick = () => setSelect(!selecting);
+$('#selAllBtn').onclick = () => { $$('.swing-card').forEach(c => { selected.add(c.dataset.id); c.classList.add('picked'); }); updateSelBar(); };
+$('#delSelBtn').onclick = async () => {
+  if (!selected.size || !confirm(`Delete ${selected.size} swing${selected.size === 1 ? '' : 's'} from your phone?`)) return;
+  for (const id of selected) await deleteSwing(id);
+  setSelect(false); renderList();
+};
 
 /* ---------- swing detail ---------- */
 const player = $('#player'), overlay = new Overlay($('#overlay'), player);
@@ -134,6 +174,7 @@ overlay.onChange = shapes => { if (current) { current.shapes = shapes; saveSwing
 async function openSwing(id, autoAnalyze = false) {
   current = await getSwing(id);
   if (!current) return;
+  setSelect(false); $('#selectBtn').classList.add('hidden');
   $('#swingList').classList.add('hidden'); $('#swingDetail').classList.remove('hidden');
   if (currentUrl) URL.revokeObjectURL(currentUrl);
   player.src = currentUrl = URL.createObjectURL(current.blob);
@@ -143,21 +184,26 @@ async function openSwing(id, autoAnalyze = false) {
   await new Promise(r => player.readyState >= 1 ? r() : player.addEventListener('loadedmetadata', r, { once: true }));
   // iOS sometimes reports Infinity duration for fresh recordings
   if (!isFinite(player.duration)) { player.currentTime = 1e6; await new Promise(r => player.addEventListener('timeupdate', r, { once: true })); player.currentTime = 0; }
+  player.currentTime = win().start;
   overlay.render();
   renderBreakdown();
-  if (autoAnalyze && !current.analysis) runAnalysis();
+  if (autoAnalyze && !current.analysis) return runAnalysis();
 }
-$('#backBtn').onclick = () => { current = null; player.pause(); renderList(); };
+$('#backBtn').onclick = () => { current = null; player.pause(); renderList(); $('#selectBtn').classList.remove('hidden'); };
+// the part of the clip we show/analyze (trimmed to the swing when we found it)
+const win = () => { const d = player.duration || 0, t = current?.trim; return t && isFinite(d) && t.start < d ? { start: t.start, end: Math.min(t.end, d) } : { start: 0, end: d }; };
 
 // playback
-$('#playBtn').onclick = () => player.paused ? player.play() : player.pause();
+$('#playBtn').onclick = () => { if (player.paused) { const w = win(); if (player.currentTime >= w.end - 0.05) player.currentTime = w.start; player.play(); } else player.pause(); };
 player.onplay = () => $('#playBtn').textContent = '❚❚';
 player.onpause = () => $('#playBtn').textContent = '▶';
 $('#speedSel').onchange = e => player.playbackRate = +e.target.value;
-$('#scrubber').oninput = e => { player.pause(); player.currentTime = (e.target.value / 1000) * (player.duration || 0); };
+$('#scrubber').oninput = e => { player.pause(); const w = win(); player.currentTime = w.start + (e.target.value / 1000) * (w.end - w.start); };
 (function loop() {
   if (current && !$('#swingDetail').classList.contains('hidden')) {
-    if (player.duration) $('#scrubber').value = (player.currentTime / player.duration) * 1000;
+    const w = win();
+    if (!player.paused && player.currentTime >= w.end) player.currentTime = w.start; // loop the swing
+    if (w.end > w.start) $('#scrubber').value = ((player.currentTime - w.start) / (w.end - w.start)) * 1000;
     overlay.render();
   }
   requestAnimationFrame(loop);
@@ -180,14 +226,15 @@ async function runAnalysis() {
   btn.disabled = true;
   try {
     st.textContent = 'Loading on-device pose model…';
-    const pose = await trackPose(player, p => st.textContent = `Tracking body… ${Math.round(p * 100)}%`);
+    const w = win();
+    const pose = await trackPose(player, p => st.textContent = `Tracking body… ${Math.round(p * 100)}%`, w.start, w.end);
     if (pose.frames.length < 8) throw new Error('Could not find your body in enough frames. Make sure your whole body is in view.');
     const phases = findPhases(pose.frames);
     const result = gradeSwing(pose.frames, phases, current.view);
     // key frames for the AI coach
     const keyFrames = {};
     for (const k of ['address', 'top', 'impact', 'finish']) { await seekTo(pose.frames[phases[k]].t); keyFrames[k] = grabFrame(player, 560, 0.75); }
-    await seekTo(0);
+    await seekTo(w.start);
     current.pose = pose; current.keyFrames = keyFrames;
     current.analysis = { ...result, phases, phaseTimes: Object.fromEntries(Object.entries(phases).map(([k, i]) => [k, pose.frames[i].t])) };
     await saveSwing(current);
@@ -291,12 +338,33 @@ let handsFree = false;
 const listener = new Listener({
   onFinal: t => {
     if (/^(stop|goodbye|bye coach|that's all)\b/i.test(t)) { endHandsFree(); speak('Talk soon.'); return; }
+    if (/\b(record|film|tape)\b/i.test(t) && !/\b(how|what|why|when)\b/i.test(t)) { coachRecord(); return; }
     if (/^(new chat|reset|start over)\b/i.test(t)) { coach.resetChat(); chat.innerHTML = ''; renderCoachCtx(); speak('Fresh start. What are we working on?'); return; }
     sendToCoach(t);
   },
   onInterim: t => orbLabel.textContent = '“' + t + '”',
   onState: s => { if (s === 'denied') { endHandsFree(); alert('Microphone / speech permission denied. Enable in Settings › Safari.'); } },
 });
+// "Record my swing" -> countdown, record, trim, analyze, then the coach talks you through it
+function resumeListening() { if (handsFree) { setOrb('listening', 'Listening… just talk'); listener.resume(); } }
+async function coachRecord() {
+  listener.pause(); setOrb('thinking', 'Getting the camera ready…');
+  showTab('record');
+  if (!(await ensureCam())) { showTab('coach'); speak('I can\u2019t get the camera. Tap record instead.'); resumeListening(); return; }
+  await speak('Okay, set the phone down and get set. Recording in 5.');
+  coachRec = true;
+  if (!(await beginRec(true))) { coachRec = false; resumeListening(); }
+}
+async function coachReview(id) {
+  speak('Got it. Give me a second to look.');
+  showTab('swings');
+  await openSwing(id, true);
+  if (!current?.analysis) { showTab('coach'); speak('I couldn\u2019t track your body in that one. Make sure you\u2019re fully in frame and try again.'); resumeListening(); return; }
+  coach.resetChat(); chat.innerHTML = '';
+  coach.attachSwing(current);
+  showTab('coach');
+  sendToCoach('Here\u2019s the swing I just hit. Give me quick feedback I can use on the next one.');
+}
 function endHandsFree() { handsFree = false; listener.stop(); stopSpeaking(); setOrb('', 'Tap the orb for hands-free coach'); }
 orb.onclick = () => {
   if (orb.classList.contains('speaking')) { stopSpeaking(); return; }

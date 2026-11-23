@@ -16,7 +16,7 @@
 <body>
 <header class="top">
   <h1 id="title">Record</h1>
-  <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙︎</button>
+  <div style="display:flex;gap:8px;align-items:center"><button id="selectBtn" class="ghost small hidden">Select</button><button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙︎</button></div>
 </header>
 
 <main>
@@ -24,7 +24,7 @@
   <section id="tab-record" class="tab active">
     <div class="cam-wrap">
       <video id="cam" playsinline muted autoplay></video>
-      <div id="camGuide" class="cam-guide"><div class="guide-body"></div></div>
+      <div id="camGuide" class="cam-guide"><div class="grid"></div><div class="guide-body"></div></div>
       <div class="cam-hint">Tap to turn on camera</div>
       <div id="countdown" class="countdown hidden"></div>
       <div id="recDot" class="rec-dot hidden">● REC</div>
@@ -36,8 +36,9 @@
     <input type="hidden" id="clubSel" value="7 Iron"><input type="hidden" id="viewSel" value="face">
     <button id="recBtn" class="rec-main">Start recording</button>
     <div class="rec-sub">
-      <button id="flipBtn" class="ghost">Flip camera</button>
-      <button id="voiceRecBtn" class="ghost">Voice control</button>
+      <button id="previewBtn" class="ghost">Preview angle</button>
+      <button id="flipBtn" class="ghost">Flip</button>
+      <button id="voiceRecBtn" class="ghost">Voice</button>
     </div>
     <button id="tipsBtn" class="tips-link">ⓘ How to set up for the best results</button>
     <p class="hint" id="recHint">Fit your whole body in the outline. Videos stay on your phone.</p>
@@ -45,6 +46,7 @@
 
   <!-- SWINGS / ANALYSIS -->
   <section id="tab-swings" class="tab">
+    <div id="selBar" class="sel-bar hidden"><button id="selAllBtn" class="ghost small">Select all</button><button id="delSelBtn" class="danger small">Delete</button></div>
     <div id="swingList" class="swing-list"></div>
     <div id="swingDetail" class="hidden">
       <button id="backBtn" class="ghost small">‹ All swings</button>
@@ -103,6 +105,7 @@
     <div class="orb-wrap">
       <button id="orb" class="orb" aria-label="Talk to coach"><span></span></button>
       <div id="orbLabel" class="hint">Tap the orb for hands-free coach</div>
+      <div class="hint">Say “record my swing” and I’ll count down, film it, and review it.</div>
     </div>
     <form id="chatForm" class="chat-form">
       <input id="chatInput" placeholder="Ask your coach…" autocomplete="off">
